@@ -1,0 +1,39 @@
+{
+    "name": "validakey/validakey-php",
+    "version": "1.8.0",
+    "description": "PHP client for the Validakey v1 token and billing API",
+    "type": "library",
+    "license": "MPL-2.0",
+    "keywords": ["validakey", "api", "token", "billing"],
+    "authors": [
+        {
+            "name": "Art Harvey",
+            "homepage": "https://validakey.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "symfony/http-client": "^6.4|^7.0|^8.0",
+        "nyholm/psr7": "^1.8"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Validakey\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Validakey\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        },
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}

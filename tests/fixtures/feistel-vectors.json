@@ -1,0 +1,119 @@
+{
+    "note": "Shared parity fixture for the Instance Token handshake. The identical file is committed in the vkey server plugin at tools/fixtures/feistel-vectors.json. Both implementations must reproduce every value exactly, or the handshake fails to decrypt with no useful diagnostic. Regenerate only when the protocol is intentionally versioned.",
+    "cipher": {
+        "block_size": 8,
+        "rounds": 8,
+        "hash_algo": "sha256"
+    },
+    "vectors": [
+        {
+            "name": "empty",
+            "key": "k",
+            "plaintext_hex": "",
+            "ciphertext": "5e53271e6b652acd"
+        },
+        {
+            "name": "block_aligned_8",
+            "key": "shortkey",
+            "plaintext_hex": "3132333435363738",
+            "ciphertext": "1ce5f8eade2d29eafdcd697b2d066d18"
+        },
+        {
+            "name": "uuid_only",
+            "key": "b3f1c2d4-1111-4aaa-8bbb-ccccddddeeee6a1b2c3d",
+            "plaintext_hex": "62336631633264342d313131312d346161612d386262622d636363636464646430303031",
+            "ciphertext": "aff3dc1e69654f8c51fc269f83f75935e408c36c0357ff577320e3972980bb699b49fe4744cbe0f4"
+        },
+        {
+            "name": "uuid_plus_finger",
+            "key": "b3f1c2d4-1111-4aaa-8bbb-ccccddddeeee6a1b2c3d",
+            "plaintext_hex": "62336631633264342d313131312d346161612d386262622d63636363646464643030303130313233343536373839616263646566303132333435363738396162636465665f7777772e6578616d706c652e636f6d",
+            "ciphertext": "aff3dc1e69654f8c51fc269f83f75935e408c36c0357ff577320e3972980bb699996f8f81f01c2bc9d90744115e100c36808235a4fd3b14a9d90744115e100c352027a3f66d7fe4938d6fa4c900eda3c07e710f58f3318d9"
+        },
+        {
+            "name": "binary_nonce",
+            "key": "key-with-binary",
+            "plaintext_hex": "000102fdfeff7f8062336631633264342d313131312d346161612d386262622d636363636464646430303031",
+            "ciphertext": "f65f44788f34faa2f0110f344c80e674138ea39a3c4c42398baca0c582ca12f3b194668e4256f71363d46710ae755b30"
+        },
+        {
+            "name": "long_multiblock",
+            "key": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeffff00001a2b",
+            "plaintext_hex": "54686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f672e2054686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f672e2054686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f672e2054686520717569636b2062726f776e20666f78206a756d7073206f76657220746865206c617a7920646f672e20",
+            "ciphertext": "30063e03e46f9df331ad2b69b48e8b20821cdf550320b33acc411761db9a15e14b3ccefbbfcfa1516995f630592f5aca7057f8e46e59c0bcb297b4768311197127382dd443dd95153d85790992dd77e07d7fd8046999c8159e593e91a2492af3ee7b1362514190c74fe240313afa900dbfae79a1c3e6c9e87cb079d8332301c4090fcccde27646422a90d10eaca144f9182f3b916081fd3f556b62e3782ca31a7f69af7b74a61e5fc9ef6e3e5f4585ce95cc2f9a367f4b47"
+        }
+    ],
+    "envelope": {
+        "prefix_len": 8,
+        "nonce_len": 8,
+        "uuid_len": 36,
+    "ts_len": 10,
+    "subject_max": 120,
+    "sub_len_width": 3,
+    "time_bits": 8,
+        "bucket_shifts": [
+            0,
+            -1,
+            1
+        ],
+        "time_offsets": [
+            {
+                "key_id": "00000000-0000-4000-8000-000000000000",
+                "offset": 0
+            },
+            {
+                "key_id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+                "offset": 2088960
+            },
+            {
+                "key_id": "12345678-9abc-4def-8123-456789abcdef",
+                "offset": 1400832
+            },
+            {
+                "key_id": "b3f1c2d4-1111-4aaa-8bbb-ccccddddeeee",
+                "offset": 139264
+            },
+            {
+                "key_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeffff0000",
+                "offset": 1531904
+            }
+        ],
+        "layout_unpack": [
+      {
+        "name": "handshake",
+        "plaintext_hex": "00112233445566aa61316232633364342d353535352d343636362d383737372d38383838393939393030303030303030313233343536373839616263646566303132333435363738396162636465665f7777772e6578616d706c652e636f6d",
+        "expect": {
+          "uuid": "a1b2c3d4-5555-4666-8777-888899990000",
+          "subject": "",
+          "fingerprint": "0123456789abcdef0123456789abcdef_www.example.com"
+        }
+      },
+      {
+        "name": "handshake_with_subject",
+        "plaintext_hex": "00112233445566aa61316232633364342d353535352d343636362d383737372d383838383939393930303030303132637573745f61635f3939333130313233343536373839616263646566303132333435363738396162636465665f7777772e6578616d706c652e636f6d",
+        "expect": {
+          "uuid": "a1b2c3d4-5555-4666-8777-888899990000",
+          "subject": "cust_ac_9931",
+          "fingerprint": "0123456789abcdef0123456789abcdef_www.example.com"
+        }
+      },
+            {
+                "name": "instance_reply",
+                "plaintext_hex": "00112233445566aa64656164626565662d313233342d343536372d383961622d636465663031323334353637",
+                "expect": {
+                    "instance_id": "deadbeef-1234-4567-89ab-cdef01234567"
+                }
+            },
+            {
+                "name": "token_request",
+                "plaintext_hex": "00112233445566aa313730303030303030307b226475726174696f6e223a333630307d",
+                "expect": {
+                    "ts": 1700000000,
+                    "payload": {
+                        "duration": 3600
+                    }
+                }
+            }
+        ]
+    }
+}
