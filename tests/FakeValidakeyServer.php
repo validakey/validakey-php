@@ -45,6 +45,13 @@ final class FakeValidakeyServer
     /** @var array<string, array{has_card: bool, brand: string, last4: string}> IE cards by instance id. */
     private array $ieCards = array();
 
+    /** Public Square Web Payments ids on IE payment status (null = omit). */
+    public ?string $squareApplicationId = null;
+
+    public ?string $squareLocationId = null;
+
+    public bool $squareSandbox = true;
+
     /** @var array<string, true> Nonces already spent, for replay rejection. */
     private array $seenNonces = array();
 
@@ -372,7 +379,17 @@ final class FakeValidakeyServer
                     ));
             }
 
-            return $this->sealedReply($instanceId, array_merge(array('ok' => true), $card));
+            return $this->sealedReply($instanceId, array_merge(
+                array('ok' => true),
+                $card,
+                null !== $this->squareApplicationId
+                    ? array(
+                        'application_id' => $this->squareApplicationId,
+                        'location_id' => $this->squareLocationId,
+                        'sandbox' => $this->squareSandbox,
+                    )
+                    : array()
+            ));
         });
     }
 

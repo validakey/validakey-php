@@ -207,6 +207,35 @@ LicensePanel::handleRequest($license, array('redirect_url' => $url)); // admin_i
 LicensePanel::render($license, array('configured' => true));          // settings tab
 ```
 
+#### `Validakey\WordPress\InstanceCardForm` / `InstancePaymentPanel`
+
+Square Web Payments for the **Instance Entity** (customer) card — no `VALIDAKEY_API_PKEY`. Wire hooks yourself:
+
+```php
+use Validakey\WordPress\InstancePaymentPanel;
+
+$opts = array(
+    'settings_page' => 'myplugin',
+    'redirect_url' => admin_url('options-general.php?page=myplugin'),
+);
+
+add_action('admin_enqueue_scripts', function ($hook) use ($client, $opts) {
+    InstancePaymentPanel::enqueue($client, $opts + array('hook_suffix' => $hook));
+});
+add_action('admin_init', function () use ($client, $opts) {
+    InstancePaymentPanel::handleDetach($client, $opts);
+    InstancePaymentPanel::handlePaymentLink($client, $opts);
+});
+add_action('wp_ajax_' . InstancePaymentPanel::DEFAULT_ATTACH_ACTION, function () use ($client, $opts) {
+    InstancePaymentPanel::handleAttachAjax($client, $opts);
+});
+
+// On the settings page:
+InstancePaymentPanel::render($client, $opts);
+```
+
+`InstanceCardForm` is the low-level enqueue + markup helper used by the panel.
+
 Pass `configured: false` and `$license = null` when constants are missing. Default capability is `manage_options`. Not a public shortcode.
 
 ---
@@ -460,15 +489,14 @@ Only one price field is sent; priority is `basisCents`, then `amount`, then `cos
 
 `noExpiry` must be asked for explicitly. Reading a zero duration as "forever" would turn a misconfigured value into a perpetual license.
 
-The five documented vKey types are all combinations of these fields:
+The documented vKey types are all combinations of these fields:
 
 | Type | Request |
 |---|---|
 | 1 Transactional | `CreateTokenRequest::free()` or `noExpiry: true` |
-| 2 Limited Time | `duration`, or `expiresAt` |
-| 3 Limited Use | `uses` |
-| 4 Subscription Time | `duration`, `autoRenew: true`, `recurrence` |
-| 5 Subscription Use | `uses`, `autoRenew: true`, and a price |
+| 2 Limited | `duration` and/or `uses` (at least one) |
+| 3 Subscription Time | `duration`, `autoRenew: true`, `recurrence` |
+| 4 Subscription Use | `uses`, `autoRenew: true`, and a price |
 
 ### AttachCardRequest
 

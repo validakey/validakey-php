@@ -246,6 +246,10 @@ final class LicenseBootstrap
             $this->configured ? $this->resolveLicense() : null,
             $this->panelOptions()
         );
+        LicensePanel::handleDelete(
+            $this->configured ? $this->resolveLicense() : null,
+            $this->panelOptions()
+        );
     }
 
     public function onAdminMenu(): void
@@ -428,12 +432,15 @@ final class LicenseBootstrap
             'parent_slug' => isset($options['parent_slug']) && '' !== trim((string) $options['parent_slug'])
                 ? trim((string) $options['parent_slug'])
                 : 'options-general.php',
+            // Keep defaults as English here — do not call __() during register()
+            // (often runs before init and triggers WP 6.7 JIT textdomain notices).
+            // Translate at display time in onAdminMenu / onAdminNotices / panelOptions.
             'menu_title' => isset($options['menu_title']) && '' !== trim((string) $options['menu_title'])
                 ? (string) $options['menu_title']
-                : (\function_exists('__') ? \__('License', 'validakey') : 'License'),
+                : 'License',
             'page_title' => isset($options['page_title']) && '' !== trim((string) $options['page_title'])
                 ? (string) $options['page_title']
-                : (\function_exists('__') ? \__('License', 'validakey') : 'License'),
+                : 'License',
             'menu_slug' => $menuSlug,
             'capability' => isset($options['capability']) && '' !== trim((string) $options['capability'])
                 ? trim((string) $options['capability'])
@@ -449,9 +456,7 @@ final class LicenseBootstrap
             'admin_notice' => ! \array_key_exists('admin_notice', $options) || (bool) $options['admin_notice'],
             'admin_notice_message' => isset($options['admin_notice_message']) && '' !== trim((string) $options['admin_notice_message'])
                 ? (string) $options['admin_notice_message']
-                : (\function_exists('__')
-                    ? \__('This plugin requires a Validakey license. Open the License settings tab to request one.', 'validakey')
-                    : 'This plugin requires a Validakey license. Open the License settings tab to request one.'),
+                : 'This plugin requires a Validakey license. Open the License settings tab to request one.',
             'token_spec' => isset($options['token_spec']) && $options['token_spec'] instanceof CreateTokenRequest
                 ? $options['token_spec']
                 : null,
@@ -467,15 +472,13 @@ final class LicenseBootstrap
                 : $pluginSlug . '_validakey_license_messages',
             'heading' => \array_key_exists('heading', $options)
                 ? (null === $options['heading'] ? null : (string) $options['heading'])
-                : (\function_exists('__') ? \__('License', 'validakey') : 'License'),
+                : 'License',
             'wrapper_class' => isset($options['wrapper_class']) && '' !== trim((string) $options['wrapper_class'])
                 ? trim((string) $options['wrapper_class'])
                 : 'validakey-license-panel',
             'unconfigured_message' => isset($options['unconfigured_message']) && '' !== trim((string) $options['unconfigured_message'])
                 ? (string) $options['unconfigured_message']
-                : (\function_exists('__')
-                    ? \__('Validakey is not configured. License-path constants (VALIDAKEY_BASE_URL, VALIDAKEY_API_UUID, VALIDAKEY_USER_APP_ID) must ship with the plugin.', 'validakey')
-                    : 'Validakey is not configured.'),
+                : 'Validakey is not configured. License-path constants (VALIDAKEY_BASE_URL, VALIDAKEY_API_UUID, VALIDAKEY_USER_APP_ID) must ship with the plugin.',
         );
     }
 }

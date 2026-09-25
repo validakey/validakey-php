@@ -307,6 +307,7 @@ Common integration points in WordPress plugins:
 | Hook / context                    | Use case                                                                                  |
 | --------------------------------- | ----------------------------------------------------------------------------------------- |
 | Admin settings / License tab      | `LicenseBootstrap::renderPanel()`, or `LicensePanel` / `$license->status()` / `request()` |
+| Admin settings / IE payment       | `InstancePaymentPanel::render()` + explicit enqueue / detach / link / AJAX hooks          |
 | Any request (gate)                | `LicenseBootstrap::allows()` or `$license->allows()` (local snapshot)                     |
 | WP-Cron (automatic via bootstrap) | `$license->revalidate()`                                                                  |
 | Admin settings save               | Validate account billing via `getBillingStatus()` (needs `VALIDAKEY_API_PKEY`)            |

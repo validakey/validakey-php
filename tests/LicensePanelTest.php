@@ -69,6 +69,7 @@ final class LicensePanelTest extends TestCase
         self::assertStringContainsString('Token Locator', $html);
         self::assertStringContainsString((string) $license->tokenLocator(), $html);
         self::assertStringNotContainsString('name="validakey_license_request"', $html);
+        self::assertStringContainsString('name="validakey_license_delete"', $html);
         // Locator may include the short fake-server token head; the full secret
         // must not appear as its own cell value.
         self::assertStringNotContainsString(

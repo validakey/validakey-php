@@ -230,6 +230,95 @@ if (! function_exists('admin_url')) {
     }
 }
 
+if (! function_exists('esc_url')) {
+    function esc_url(string $url): string
+    {
+        return htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+}
+
+if (! function_exists('esc_js')) {
+    function esc_js(string $text): string
+    {
+        return str_replace(array('\\', "'", '"', "\n", "\r"), array('\\\\', "\\'", '\\"', '\\n', ''), $text);
+    }
+}
+
+if (! function_exists('sanitize_text_field')) {
+    function sanitize_text_field(string $str): string
+    {
+        return trim(strip_tags($str));
+    }
+}
+
+if (! function_exists('wp_verify_nonce')) {
+    function wp_verify_nonce(string $nonce, string|int $action = -1): bool|int
+    {
+        return 'test-nonce' === $nonce ? 1 : false;
+    }
+}
+
+if (! function_exists('wp_create_nonce')) {
+    function wp_create_nonce(string|int $action = -1): string
+    {
+        return 'test-nonce';
+    }
+}
+
+if (! function_exists('add_settings_error')) {
+    function add_settings_error(string $setting, string $code, string $message, string $type = 'error'): void
+    {
+        $GLOBALS['validakey_test_settings_errors'][] = compact('setting', 'code', 'message', 'type');
+    }
+}
+
+if (! function_exists('get_settings_errors')) {
+    function get_settings_errors(string $setting = '', bool $sanitize = false): array
+    {
+        $errors = $GLOBALS['validakey_test_settings_errors'] ?? array();
+        if ('' === $setting) {
+            return $errors;
+        }
+
+        return array_values(array_filter(
+            $errors,
+            static fn (array $row): bool => ($row['setting'] ?? '') === $setting
+        ));
+    }
+}
+
+if (! function_exists('add_query_arg')) {
+    /**
+     * @param string|array<string, mixed> $key
+     * @param mixed $value
+     */
+    function add_query_arg($key, $value = null, ?string $url = null): string
+    {
+        if (is_array($key)) {
+            $url = (string) $value;
+            foreach ($key as $k => $v) {
+                $url = add_query_arg((string) $k, $v, $url);
+            }
+
+            return $url;
+        }
+
+        $base = $url ?? '';
+        $sep = str_contains($base, '?') ? '&' : '?';
+
+        return $base . $sep . rawurlencode((string) $key) . '=' . rawurlencode((string) $value);
+    }
+}
+
+if (! function_exists('wp_safe_redirect')) {
+    function wp_safe_redirect(string $location, int $status = 302, string $x_redirect_by = 'WordPress'): bool
+    {
+        $GLOBALS['validakey_test_redirect'] = $location;
+
+        return true;
+    }
+}
+
 if (! function_exists('add_submenu_page')) {
     function add_submenu_page(
         string $parent_slug,

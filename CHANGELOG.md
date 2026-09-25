@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `Validakey\WordPress\InstancePaymentPanel` — admin IE card section (status,
+  Square embed via `InstanceCardForm`, detach, hosted payment link) with
+  **explicit** hook wiring (`enqueue`, `handleAttachAjax`, `handleDetach`,
+  `handlePaymentLink`, `render`). No auto-register.
+
 ## 1.8.0
 
 WordPress license integration is one register call plus feature gates.

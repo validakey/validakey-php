@@ -11,6 +11,7 @@ use Validakey\Instance\InMemoryLicenseCheckStore;
 use Validakey\Instance\InMemoryTokenStore;
 use Validakey\License;
 use Validakey\Request\CreateTokenRequest;
+use Validakey\Response\InstancePaymentResponse;
 use Validakey\Response\LicenseSnapshot;
 use Validakey\ValidakeyClient;
 use Validakey\ValidakeyConfig;
@@ -32,6 +33,52 @@ final class LicenseTest extends TestCase
         self::assertArrayNotHasKey('basis_cents', $payload);
         self::assertArrayNotHasKey('amount', $payload);
         self::assertArrayNotHasKey('cost_USD', $payload);
+        self::assertArrayNotHasKey('tax_USD', $payload);
+    }
+
+    public function testCostAndTaxUsdAreEmittedInPayload(): void
+    {
+        $payload = (new CreateTokenRequest(
+            duration: 3600,
+            costUsd: 5.0,
+            taxUsd: 0.4,
+        ))->toArray();
+
+        self::assertSame(5.0, $payload['cost_USD']);
+        self::assertSame(0.4, $payload['tax_USD']);
+        self::assertArrayNotHasKey('total_USD', $payload);
+    }
+
+    public function testUsesOnlyLimitedOmitsDuration(): void
+    {
+        $payload = (new CreateTokenRequest(uses: 2))->toArray();
+
+        self::assertSame(2, $payload['uses']);
+        self::assertArrayNotHasKey('duration', $payload);
+        self::assertArrayNotHasKey('no_expiry', $payload);
+    }
+
+    public function testLimitedTimeAndUsesTogether(): void
+    {
+        $payload = (new CreateTokenRequest(duration: 3600, uses: 3))->toArray();
+
+        self::assertSame(3600, $payload['duration']);
+        self::assertSame(3, $payload['uses']);
+    }
+
+    public function testInstancePaymentStatusExposesSquareCheckoutFields(): void
+    {
+        $status = InstancePaymentResponse::fromArray(array(
+            'ok' => true,
+            'has_card' => false,
+            'application_id' => 'sandbox-sq0idb-abc',
+            'location_id' => 'LXXXX',
+            'sandbox' => true,
+        ));
+
+        self::assertSame('sandbox-sq0idb-abc', $status->applicationId());
+        self::assertSame('LXXXX', $status->locationId());
+        self::assertTrue($status->isSandbox());
     }
 
     public function testStatusWithoutAStoredTokenDoesNotCallTheApi(): void

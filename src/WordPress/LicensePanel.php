@@ -11,15 +11,16 @@ use Validakey\License;
 use Validakey\Response\LicenseStatus;
 
 /**
- * Admin settings panel for a {@see License}: status table and Request button.
+ * Admin settings panel for a {@see License}: status table, Request, and Delete.
  *
  * Drop this onto a plugin settings tab — not a public shortcode. Capability
  * defaults to manage_options. The caller supplies redirect URL and usually
- * wires handleRequest() on admin_init.
+ * wires handleRequest() / handleDelete() on admin_init.
  *
  * @phpstan-type PanelOptions array{
  *     capability?: string,
  *     action?: string,
+ *     delete_action?: string,
  *     nonce_field?: string,
  *     redirect_url?: string,
  *     error_transient?: string,
@@ -35,6 +36,7 @@ final class LicensePanel
 {
     public const DEFAULT_CAPABILITY = 'manage_options';
     public const DEFAULT_ACTION = 'validakey_license_request';
+    public const DEFAULT_DELETE_ACTION = 'validakey_license_delete';
     public const DEFAULT_ERROR_TRANSIENT = 'validakey_license_last_error';
     public const DEFAULT_SETTINGS_GROUP = 'validakey_license_messages';
 
@@ -110,8 +112,79 @@ final class LicensePanel
     }
 
     /**
-     * Render the status table, last error (if any), and Request button when
-     * the subject has no valid grant.
+     * Process a Delete POST when present. Revokes the vKey server-side and
+     * clears local license storage.
+     *
+     * @param PanelOptions $options
+     */
+    public static function handleDelete(?License $license, array $options = array()): void
+    {
+        $options = self::normalizeOptions($options);
+
+        if (! \is_admin() || ! \current_user_can($options['capability'])) {
+            return;
+        }
+
+        $action = $options['delete_action'];
+        if (! isset($_POST[$action])) {
+            return;
+        }
+
+        $nonceField = $options['nonce_field'];
+        if (
+            ! isset($_POST[$nonceField])
+            || ! \wp_verify_nonce(
+                \sanitize_text_field(\wp_unslash((string) $_POST[$nonceField])),
+                $action
+            )
+        ) {
+            return;
+        }
+
+        $redirect = $options['redirect_url'];
+        if ('' === $redirect) {
+            throw new \InvalidArgumentException(
+                'LicensePanel::handleDelete() requires options[redirect_url].'
+            );
+        }
+
+        if (! $options['configured'] || null === $license) {
+            self::addNotice(
+                $options['settings_group'],
+                'validakey_license_unconfigured',
+                $options['unconfigured_message'],
+                'error'
+            );
+            self::redirectWithNotices($redirect);
+
+            return;
+        }
+
+        try {
+            $license->delete();
+            \delete_transient($options['error_transient']);
+            self::addNotice(
+                $options['settings_group'],
+                'validakey_license_deleted',
+                \__('License deleted.', 'validakey'),
+                'success'
+            );
+            self::redirectWithNotices($redirect);
+        } catch (PaymentRequiredException $e) {
+            self::rememberError($options['error_transient'], self::paymentNotice($e));
+        } catch (ApiException $e) {
+            self::rememberError($options['error_transient'], self::apiNotice($e));
+        } catch (ValidakeyException $e) {
+            self::rememberError($options['error_transient'], $e->getMessage());
+        }
+
+        \wp_safe_redirect($redirect);
+        exit;
+    }
+
+    /**
+     * Render the status table, last error (if any), Request when ungranted,
+     * and Delete when a grant (or stored vKey) is present.
      *
      * @param PanelOptions $options
      */
@@ -161,6 +234,13 @@ final class LicensePanel
             \wp_nonce_field($options['action'], $options['nonce_field']);
             \submit_button(\__('Request', 'validakey'), 'primary', $options['action'], false);
             echo '</form>';
+        } elseif ($license->hasToken()) {
+            echo '<form method="post" class="validakey-license-delete-form" onsubmit="return confirm(\''
+                . \esc_js(\__('Delete this license? The vKey will be revoked and cannot be reused.', 'validakey'))
+                . '\');">';
+            \wp_nonce_field($options['delete_action'], $options['nonce_field']);
+            \submit_button(\__('Revoke & Delete Key', 'validakey'), 'delete', $options['delete_action'], false);
+            echo '</form>';
         }
 
         echo '</div>';
@@ -174,6 +254,7 @@ final class LicensePanel
      * @return array{
      *     capability: string,
      *     action: string,
+     *     delete_action: string,
      *     nonce_field: string,
      *     redirect_url: string,
      *     error_transient: string,
@@ -191,11 +272,16 @@ final class LicensePanel
             ? trim((string) $options['action'])
             : self::DEFAULT_ACTION;
 
+        $deleteAction = isset($options['delete_action']) && '' !== trim((string) $options['delete_action'])
+            ? trim((string) $options['delete_action'])
+            : self::DEFAULT_DELETE_ACTION;
+
         return array(
             'capability' => isset($options['capability']) && '' !== trim((string) $options['capability'])
                 ? trim((string) $options['capability'])
                 : self::DEFAULT_CAPABILITY,
             'action' => $action,
+            'delete_action' => $deleteAction,
             'nonce_field' => isset($options['nonce_field']) && '' !== trim((string) $options['nonce_field'])
                 ? trim((string) $options['nonce_field'])
                 : $action . '_nonce',

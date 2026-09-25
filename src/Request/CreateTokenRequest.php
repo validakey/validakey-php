@@ -7,6 +7,9 @@ namespace Validakey\Request;
 final class CreateTokenRequest
 {
     /**
+     * @param ?int $duration Lifetime in seconds. Omit (null) when the mint has
+     *                       no clock limit (e.g. uses-only Limited). Pass 0 with
+     *                       {@see $noExpiry} for a transactional perpetual vKey.
      * @param bool $noExpiry Mint a vKey that never expires, which only
      *                       revocation can end. This is what a transactional
      *                       (type 1) vKey needs, and it has to be asked for
@@ -15,7 +18,7 @@ final class CreateTokenRequest
      *                       perpetual license.
      */
     public function __construct(
-        public readonly int $duration = 3600,
+        public readonly ?int $duration = null,
         public readonly ?int $expiresAt = null,
         public readonly ?int $uses = null,
         public readonly ?string $recurrence = null,
@@ -23,6 +26,7 @@ final class CreateTokenRequest
         public readonly ?int $basisCents = null,
         public readonly ?float $amount = null,
         public readonly ?float $costUsd = null,
+        public readonly ?float $taxUsd = null,
         public readonly bool $noExpiry = false,
     ) {
     }
@@ -43,10 +47,11 @@ final class CreateTokenRequest
      */
     public function toArray(): array
     {
-        $payload = array(
-            'duration' => $this->duration,
-        );
+        $payload = array();
 
+        if (null !== $this->duration) {
+            $payload['duration'] = $this->duration;
+        }
         if ($this->noExpiry) {
             $payload['no_expiry'] = true;
         }
@@ -68,6 +73,9 @@ final class CreateTokenRequest
             $payload['amount'] = $this->amount;
         } elseif (null !== $this->costUsd) {
             $payload['cost_USD'] = $this->costUsd;
+        }
+        if (null !== $this->taxUsd) {
+            $payload['tax_USD'] = $this->taxUsd;
         }
 
         return $payload;

@@ -283,6 +283,19 @@ final class License
         $this->checks->forget($key);
     }
 
+    /**
+     * Revoke the stored vKey on the server (when present), then clear local state.
+     */
+    public function delete(): void
+    {
+        $token = $this->token();
+        if (null !== $token) {
+            $this->client->deleteToken($token);
+        }
+
+        $this->forget();
+    }
+
     private function remember(LicenseStatus $status): void
     {
         $this->checks->set(

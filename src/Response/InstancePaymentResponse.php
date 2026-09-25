@@ -59,6 +59,34 @@ final class InstancePaymentResponse
     }
 
     /**
+     * Square Web Payments application ID from IE status (public; safe for the browser).
+     */
+    public function applicationId(): ?string
+    {
+        $value = $this->data['application_id'] ?? null;
+
+        return null === $value || '' === $value ? null : (string) $value;
+    }
+
+    /**
+     * Square location ID from IE status (public; safe for the browser).
+     */
+    public function locationId(): ?string
+    {
+        $value = $this->data['location_id'] ?? null;
+
+        return null === $value || '' === $value ? null : (string) $value;
+    }
+
+    /**
+     * Whether Square Web Payments should load the sandbox SDK.
+     */
+    public function isSandbox(): bool
+    {
+        return ! empty($this->data['sandbox']);
+    }
+
+    /**
      * The hosted payment URL, present only on a link request.
      */
     public function paymentUrl(): ?string
