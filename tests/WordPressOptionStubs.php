@@ -51,6 +51,20 @@ if (! function_exists('__')) {
     }
 }
 
+if (! function_exists('_n')) {
+    function _n(string $single, string $plural, int $number, string $domain = 'default'): string
+    {
+        return 1 === $number ? $single : $plural;
+    }
+}
+
+if (! function_exists('wp_kses_post')) {
+    function wp_kses_post(string $text): string
+    {
+        return $text;
+    }
+}
+
 if (! function_exists('esc_html')) {
     function esc_html(string $text): string
     {

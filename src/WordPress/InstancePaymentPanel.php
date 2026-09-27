@@ -49,6 +49,9 @@ use Validakey\ValidakeyClient;
  *     heading?: string|null,
  *     intro?: string|null,
  *     show_hosted_link?: bool,
+ *     card_show_submit?: bool,
+ *     card_chain_submit_selector?: string,
+ *     no_card_message?: string|null,
  *     echo?: bool
  * }
  */
@@ -102,6 +105,7 @@ final class InstancePaymentPanel
             'nonce' => \function_exists('wp_create_nonce')
                 ? (string) \wp_create_nonce($options['attach_action'])
                 : '',
+            'chain_submit_selector' => $options['card_chain_submit_selector'],
         ));
     }
 
@@ -172,11 +176,20 @@ final class InstancePaymentPanel
             );
             echo '</form>';
         } elseif (null !== $status->applicationId()) {
-            echo '<p>' . \esc_html(\__(
-                'No card on file. Enter a card below, then request a priced license.',
-                'validakey'
-            )) . '</p>';
-            InstanceCardForm::render();
+            $noCardMessage = $options['no_card_message'];
+            if (null === $noCardMessage || '' === $noCardMessage) {
+                // Standalone card form still gets a short prompt; purchase flow
+                // (card_show_submit false) relies on the form + button alone.
+                $noCardMessage = $options['card_show_submit']
+                    ? \__('No card on file. Enter a card below, then request a priced license.', 'validakey')
+                    : '';
+            }
+            if ('' !== $noCardMessage) {
+                echo '<p>' . \esc_html($noCardMessage) . '</p>';
+            }
+            InstanceCardForm::render(array(
+                'show_submit' => $options['card_show_submit'],
+            ));
             if ($options['show_hosted_link']) {
                 self::renderHostedLinkForm($options['link_action']);
             }
@@ -379,6 +392,9 @@ final class InstancePaymentPanel
      *     heading: string|null,
      *     intro: string|null,
      *     show_hosted_link: bool,
+     *     card_show_submit: bool,
+     *     card_chain_submit_selector: string,
+     *     no_card_message: string|null,
      *     echo: bool
      * }
      */
@@ -428,6 +444,13 @@ final class InstancePaymentPanel
                     'validakey'
                 ),
             'show_hosted_link' => ! isset($options['show_hosted_link']) || (bool) $options['show_hosted_link'],
+            'card_show_submit' => ! isset($options['card_show_submit']) || (bool) $options['card_show_submit'],
+            'card_chain_submit_selector' => isset($options['card_chain_submit_selector'])
+                ? trim((string) $options['card_chain_submit_selector'])
+                : '',
+            'no_card_message' => \array_key_exists('no_card_message', $options)
+                ? (null === $options['no_card_message'] ? null : (string) $options['no_card_message'])
+                : null,
             'echo' => ! isset($options['echo']) || (bool) $options['echo'],
         );
     }

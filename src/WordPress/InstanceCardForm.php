@@ -27,7 +27,8 @@ final class InstanceCardForm
      *     nonce?: string,
      *     container_id?: string,
      *     form_id?: string,
-     *     script_url?: string|null
+     *     script_url?: string|null,
+     *     chain_submit_selector?: string
      * } $config
      */
     public static function enqueue(array $config): void
@@ -57,7 +58,7 @@ final class InstanceCardForm
             self::SCRIPT_HANDLE,
             $scriptUrl,
             array($squareHandle),
-            '1.8.1',
+            '1.9.2',
             true
         );
 
@@ -85,6 +86,9 @@ final class InstanceCardForm
             'nonce' => $nonce,
             'containerId' => isset($config['container_id']) ? (string) $config['container_id'] : 'validakey-ie-card-container',
             'formId' => isset($config['form_id']) ? (string) $config['form_id'] : 'validakey-ie-card-form',
+            'chainSubmitSelector' => isset($config['chain_submit_selector'])
+                ? (string) $config['chain_submit_selector']
+                : '',
             'i18n' => array(
                 'notReady' => \__('Card form is not ready.', 'validakey'),
                 'tokenizeFailed' => \__('Card tokenization failed.', 'validakey'),
@@ -95,14 +99,15 @@ final class InstanceCardForm
     }
 
     /**
-     * Echo the card form markup (container + submit). Call after enqueue on the same request.
+     * Echo the card form markup (container + optional submit). Call after enqueue on the same request.
      *
-     * @param array{container_id?: string, form_id?: string, submit_label?: string} $options
+     * @param array{container_id?: string, form_id?: string, submit_label?: string, show_submit?: bool} $options
      */
     public static function render(array $options = array()): void
     {
         $containerId = isset($options['container_id']) ? (string) $options['container_id'] : 'validakey-ie-card-container';
         $formId = isset($options['form_id']) ? (string) $options['form_id'] : 'validakey-ie-card-form';
+        $showSubmit = ! isset($options['show_submit']) || (bool) $options['show_submit'];
         $submitLabel = isset($options['submit_label']) && '' !== (string) $options['submit_label']
             ? (string) $options['submit_label']
             : \__('Save card', 'validakey');
@@ -110,9 +115,12 @@ final class InstanceCardForm
         echo '<form id="' . \esc_attr($formId) . '" class="validakey-ie-card-form" method="post" action="#">';
         echo '<div id="' . \esc_attr($containerId) . '" class="validakey-ie-card-container" style="min-height:56px;margin:0.75em 0;"></div>';
         echo '<p class="validakey-ie-card-error" hidden style="color:#b32d2e;"></p>';
-        echo '<p class="submit" style="margin-top:0.5em;">';
-        echo '<button type="submit" class="button button-primary">' . \esc_html($submitLabel) . '</button>';
-        echo '</p></form>';
+        if ($showSubmit) {
+            echo '<p class="submit" style="margin-top:0.5em;">';
+            echo '<button type="submit" class="button button-primary">' . \esc_html($submitLabel) . '</button>';
+            echo '</p>';
+        }
+        echo '</form>';
     }
 
     public static function defaultScriptUrl(): string

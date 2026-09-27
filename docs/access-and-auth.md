@@ -4,7 +4,7 @@ Validakey has two authentication paths, and which one applies depends on the end
 
 | Path | Endpoints | Authenticated by | Identity on the wire |
 |------|-----------|------------------|----------------------|
-| Token | `/v1/i/`, `/v1/r/`, `/v1/t/`, `/v1/m/`, `/v1/v/`, `/v1/p/` | Instance handshake | 8-character lookup prefix only |
+| Token | `/v1/i/`, `/v1/r/`, `/v1/t/`, `/v1/m/`, `/v1/policy/`, `/v1/v/`, `/v1/p/` | Instance handshake | 8-character lookup prefix only |
 | Account | `/v1/u/`, `/v1/billing/*` | `Bearer <api_pkey>` | Cleartext headers and query fields |
 
 The account path is ordinary bearer-token authentication and needs no explanation. The rest of this document covers the token path.

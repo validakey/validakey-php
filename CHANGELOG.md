@@ -2,10 +2,36 @@
 
 ## Unreleased
 
+- `Validakey\WordPress\ConfigPrefixPanel` — admin status line with cleartext
+  account UUID and User App ID lookup prefixes (`Envelope::prefix`) without
+  printing full credentials.
+- `Validakey\WordPress\LicensePurchasePanel` — one admin panel for software
+  license purchase: mint-policy pricing summary, IE card embed via
+  `InstancePaymentPanel` (embed-only; hosted payment link is not exposed; card
+  UI only when policy is priced), and a single Purchase / Request button that
+  also saves the card when needed (status + revoke when granted). Explains when
+  `POST /v1/policy/` is missing (HTTP 404). Explicit payment hook wiring
+  (`enqueue`, `handleAttachAjax`, `handleDetach`, `render`); Request/Delete still
+  need `LicenseBootstrap::register()` (or `LicensePanel::handleRequest`).
 - `Validakey\WordPress\InstancePaymentPanel` — admin IE card section (status,
   Square embed via `InstanceCardForm`, detach, hosted payment link) with
   **explicit** hook wiring (`enqueue`, `handleAttachAjax`, `handleDetach`,
-  `handlePaymentLink`, `render`). No auto-register.
+  `handlePaymentLink`, `render`). Supports `card_show_submit` /
+  `card_chain_submit_selector` for combined purchase flows. No auto-register.
+
+## 1.9.0
+
+Mint policy discovery on the sealed token path.
+
+- `ValidakeyClient::getMintPolicy()` — instance-sealed `POST /v1/policy/`
+- `MintPolicyResponse` — enabled flag, defaults, limits helpers (`isFixedPrice()`, etc.)
+- `CreateTokenRequest::fromMintPolicy()` / `serverDefaults()` / optional `taxCents`
+- `License::mintPolicy()` and `request()` — when no explicit spec is passed and the
+  app enforces policy, mint shape comes from server defaults (404 on `/policy/`
+  falls back to the constructor spec for older hosts)
+- `renewToken(..., ?array $sale)` — optional price fields for paid top-ups under policy
+- WordPress `LicensePanel::apiNotice()` — clearer copy for `mint_policy_violation`
+  and `ie_card_required`
 
 ## 1.8.0
 

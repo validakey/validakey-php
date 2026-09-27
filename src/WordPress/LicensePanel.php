@@ -236,7 +236,7 @@ final class LicensePanel
             echo '</form>';
         } elseif ($license->hasToken()) {
             echo '<form method="post" class="validakey-license-delete-form" onsubmit="return confirm(\''
-                . \esc_js(\__('Delete this license? The vKey will be revoked and cannot be reused.', 'validakey'))
+                . \esc_js(\__('PERMANENTLY DELETE this license? The license will be revoked immediately, cannot be reclaimed, and will not be refunded.', 'validakey'))
                 . '\');">';
             \wp_nonce_field($options['delete_action'], $options['nonce_field']);
             \submit_button(\__('Revoke & Delete Key', 'validakey'), 'delete', $options['delete_action'], false);
@@ -385,6 +385,18 @@ final class LicensePanel
 
     public static function apiNotice(ApiException $e): string
     {
+        if ('mint_policy_violation' === $e->errorCode) {
+            $message = \trim($e->getMessage());
+
+            return '' !== $message
+                ? $message
+                : \__('This license request does not match the app mint policy (price or duration limits).', 'validakey');
+        }
+
+        if ('ie_card_required' === $e->errorCode) {
+            return \__('A customer payment card is required before this priced license can be issued.', 'validakey');
+        }
+
         $code = $e->errorCode ? $e->errorCode : 'error';
         $status = (int) $e->httpStatus;
         $lines = array(

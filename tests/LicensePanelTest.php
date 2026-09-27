@@ -136,6 +136,7 @@ final class LicensePanelTest extends TestCase
         $transport = new MockHttpTransport(array(
             'POST ' . self::BASE_URL . '/i/' => $server->handshakeResponder(),
             'POST ' . self::BASE_URL . '/m/' => $server->tokenResponder(),
+            'POST ' . self::BASE_URL . '/policy/' => $server->policyResponder(),
             'POST ' . self::BASE_URL . '/v/' => $server->tokenActionResponder(),
             'DELETE ' . self::BASE_URL . '/v/' => $server->tokenActionResponder(),
         ));

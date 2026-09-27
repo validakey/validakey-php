@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Validakey;
 
+use Validakey\Exception\ApiException;
 use Validakey\Exception\LicenseRequiredException;
 use Validakey\Instance\InMemoryLicenseCheckStore;
 use Validakey\Instance\LicenseCheckStore;
@@ -11,6 +12,7 @@ use Validakey\Instance\TokenStore;
 use Validakey\Request\CreateTokenRequest;
 use Validakey\Response\LicenseSnapshot;
 use Validakey\Response\LicenseStatus;
+use Validakey\Response\MintPolicyResponse;
 use Validakey\Response\TokenResponse;
 
 /**
@@ -238,10 +240,14 @@ final class License
      * An invalid stored vKey is replaced. PaymentRequiredException and other
      * API errors propagate so the caller can tell seller billing from a
      * customer card requirement.
+     *
+     * When $spec is omitted, an enabled app mint policy supplies the mint
+     * shape via {@see CreateTokenRequest::fromMintPolicy()}; otherwise the
+     * constructor {@see $spec} is used (often {@see CreateTokenRequest::free()}).
      */
     public function request(?CreateTokenRequest $spec = null): TokenResponse
     {
-        $spec ??= $this->spec;
+        $spec ??= $this->resolveMintSpec();
         $existing = $this->token();
         if (null !== $existing) {
             $check = $this->client->verifyToken($existing);
@@ -271,6 +277,36 @@ final class License
         );
 
         return $response;
+    }
+
+    /**
+     * Public mint policy for this instance’s app (`POST /v1/policy/`).
+     */
+    public function mintPolicy(): MintPolicyResponse
+    {
+        return $this->client->getMintPolicy();
+    }
+
+    /**
+     * Choose a mint request: policy defaults when enforced, else configured spec.
+     *
+     * Older hosts without `/v1/policy/` (HTTP 404) fall back to the constructor
+     * spec so existing free-mint plugins keep working until the server is updated.
+     */
+    private function resolveMintSpec(): CreateTokenRequest
+    {
+        try {
+            $policy = $this->client->getMintPolicy();
+            if ($policy->isEnabled()) {
+                return CreateTokenRequest::fromMintPolicy($policy);
+            }
+        } catch (ApiException $e) {
+            if (404 !== $e->httpStatus) {
+                throw $e;
+            }
+        }
+
+        return $this->spec;
     }
 
     /**

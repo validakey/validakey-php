@@ -39,6 +39,20 @@ final class FakeValidakeyServer
     /** @var list<array{instance_id: string, payload: array<string, mixed>}> Requests to /p/. */
     public array $paymentActions = array();
 
+    /** @var list<array{instance_id: string, payload: array<string, mixed>}> Requests to /policy/. */
+    public array $policyQueries = array();
+
+    /**
+     * Public mint policy returned by {@see policyResponder()}.
+     *
+     * @var array{enabled: bool, defaults: array<string, mixed>, limits: array<string, mixed>}
+     */
+    public array $mintPolicy = array(
+        'enabled' => false,
+        'defaults' => array(),
+        'limits' => array(),
+    );
+
     /** @var array<string, array{valid: bool, expires_at: int, uses: ?int, revoked: bool, app_id: string, subject: string}> vKeys by value. */
     public array $vkeys = array();
 
@@ -229,6 +243,23 @@ final class FakeValidakeyServer
                 $opened['key_id']
             );
         };
+    }
+
+    /**
+     * Responder for POST /policy/.
+     */
+    public function policyResponder(): callable
+    {
+        return $this->sealedRoute(function (string $instanceId, array $payload): MockResponse {
+            $this->policyQueries[] = array(
+                'instance_id' => $instanceId,
+                'payload' => $payload,
+            );
+
+            return $this->sealedReply($instanceId, array(
+                'mint_policy' => $this->mintPolicy,
+            ));
+        });
     }
 
     /**

@@ -17,6 +17,7 @@ use Validakey\Response\BillingConfigResponse;
 use Validakey\Response\BillingStatusResponse;
 use Validakey\Response\InstancePaymentResponse;
 use Validakey\Response\InstanceResponse;
+use Validakey\Response\MintPolicyResponse;
 use Validakey\Response\TokenResponse;
 use Validakey\Response\TokenVerifyResponse;
 use Validakey\Response\UserInfoResponse;
@@ -27,7 +28,7 @@ use Validakey\Response\UserInfoResponse;
  * Two authentication paths coexist, and which one a call uses decides whether
  * it is safe to ship.
  *
- * The token path (/i/, /m/, /v/, /r/, /p/) is authenticated by the instance
+ * The token path (/i/, /m/, /policy/, /v/, /r/, /p/) is authenticated by the instance
  * handshake. The client seals a payload with its user_app_id, the server
  * answers with an instance id, and that instance id keys every later request.
  * Nothing identifying travels in cleartext beyond an 8-character lookup
@@ -306,6 +307,18 @@ final class ValidakeyClient
         return $this->createTokenWithInstance($request, $this->getInstanceToken()->instanceId);
     }
 
+    /**
+     * Read the User App mint defaults and limits for this instance.
+     *
+     * Instance-sealed (`POST /v1/policy/`). Use before minting when the app
+     * may enforce policy so clients discover required prices without trusting
+     * hard-coded amounts. No account private key is involved.
+     */
+    public function getMintPolicy(): MintPolicyResponse
+    {
+        return MintPolicyResponse::fromArray($this->tokenAction('POST', array(), 'policy'));
+    }
+
     private function createTokenWithInstance(CreateTokenRequest $request, string $instanceId): TokenResponse
     {
         $sealed = Envelope::seal(Envelope::packRequest($request->toArray()), $instanceId);
@@ -359,9 +372,26 @@ final class ValidakeyClient
      * vKey carries a price, the renewal is charged to the Instance Entity's
      * card, and a decline comes back as an invalid result with the decline
      * code rather than as an exception.
+     *
+     * When the app enforces mint policy, added duration/uses/price must stay
+     * inside the configured limits or the server returns mint_policy_violation.
+     *
+     * @param array{
+     *     duration?: int,
+     *     uses?: int,
+     *     basis_cents?: int,
+     *     tax_cents?: int,
+     *     amount?: float,
+     *     cost_USD?: float,
+     *     tax_USD?: float
+     * }|null $sale Optional price fields for a paid top-up (same keys as mint).
      */
-    public function renewToken(string $token, ?int $duration = null, ?int $uses = null): TokenVerifyResponse
-    {
+    public function renewToken(
+        string $token,
+        ?int $duration = null,
+        ?int $uses = null,
+        ?array $sale = null,
+    ): TokenVerifyResponse {
         $payload = array(
             'action' => 'renew',
             'token' => $token,
@@ -372,6 +402,13 @@ final class ValidakeyClient
         }
         if (null !== $uses) {
             $payload['uses'] = $uses;
+        }
+        if (null !== $sale) {
+            foreach (array('basis_cents', 'tax_cents', 'amount', 'cost_USD', 'tax_USD') as $key) {
+                if (array_key_exists($key, $sale) && null !== $sale[$key] && '' !== $sale[$key]) {
+                    $payload[$key] = $sale[$key];
+                }
+            }
         }
 
         return TokenVerifyResponse::fromArray($this->tokenAction('POST', $payload));

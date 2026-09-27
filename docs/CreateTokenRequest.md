@@ -15,9 +15,18 @@ The `CreateTokenRequest` class is a data transfer object used to create access t
 | **taxUsd** | `?float` | null | `tax_USD` |
 | **noExpiry** | `bool` | false | `no_expiry` |
 
-Only one basis price field is sent (`basisCents` → `amount` → `costUsd`). `total_USD` is not a client input; the server stores `cost + tax`.
+Only one basis price field is sent (`basisCents` → `amount` → `costUsd`). Prefer `taxCents` over `taxUsd` when both could apply. `total_USD` is not a client input; the server stores `cost + tax`.
 
 ## Key Methods
+
+### `free()`
+Type 1 transactional shortcut (no expiry, no price). Avoid when the app enforces a priced mint policy.
+
+### `fromMintPolicy(MintPolicyResponse $policy)`
+Copies enabled policy defaults into a request. Use with `ValidakeyClient::getMintPolicy()`.
+
+### `serverDefaults()`
+Empty request so an enabled server policy can fill omitted fields.
 
 ### `toArray()`
 ```php

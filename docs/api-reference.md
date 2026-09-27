@@ -8,7 +8,7 @@ Main entry point. Construct with `ValidakeyConfig` and optional custom `HttpTran
 
 The account UUID is never part of the URL path. How a call authenticates depends on the endpoint:
 
-- **Token path** (`/v1/i/`, `/v1/r/`, `/v1/t/`, `/v1/m/`, `/v1/v/`, `/v1/p/`) — the request body is a single encrypted field. No identifiers travel in cleartext, and no account credential is involved. See [Access and authentication](access-and-auth.md).
+- **Token path** (`/v1/i/`, `/v1/r/`, `/v1/t/`, `/v1/m/`, `/v1/policy/`, `/v1/v/`, `/v1/p/`) — the request body is a single encrypted field. No identifiers travel in cleartext, and no account credential is involved. See [Access and authentication](access-and-auth.md).
 - **Account path** (`/v1/u/`, `/v1/billing/*`) — `Bearer apiPKey`, plus the cleartext **application context** (account UUID, user app id, fingerprint) in headers and body/query fields. See [Configuration](configuration.md#application-context).
 
 Everything to do with licenses is on the token path. The private key exists for reading and changing your own account, and software you distribute should not carry it.
@@ -150,6 +150,27 @@ The request is sealed with the client's instance id, performing a handshake firs
 
 `CreateTokenRequest::free()` is the type 1 shortcut: `noExpiry: true`, duration 0, no price fields.
 
+When the User App enforces **mint policy**, prefer omitting price/shape fields (or use `CreateTokenRequest::fromMintPolicy($client->getMintPolicy())`) so the server applies defaults. Invented free or oversized mints return `mint_policy_violation`.
+
+---
+
+#### `getMintPolicy(): MintPolicyResponse`
+
+Reads the effective public mint defaults and limits for this instance’s app.
+
+- **HTTP:** `POST /v1/policy/`
+- **Auth:** Sealed with the instance id
+- **Precondition:** none beyond a valid instance
+
+```php
+$policy = $client->getMintPolicy();
+if ($policy->isEnabled()) {
+    $token = $client->createToken(CreateTokenRequest::fromMintPolicy($policy));
+}
+```
+
+**Returns:** `MintPolicyResponse` with `enabled`, `defaults`, `limits`, plus helpers such as `defaultBasisCents()`, `isFixedPrice()`, and `allowNoExpiry()`.
+
 ---
 
 #### `Validakey\License`
@@ -236,7 +257,66 @@ InstancePaymentPanel::render($client, $opts);
 
 `InstanceCardForm` is the low-level enqueue + markup helper used by the panel.
 
+#### `Validakey\WordPress\LicensePurchasePanel`
+
+Software-license purchase UI in one place: mint-policy terms, IE card form, and
+Purchase / Request (status + revoke when already granted). Prefer this over
+wiring `LicensePanel` + `InstancePaymentPanel` separately for plugin settings.
+
+```php
+use Validakey\WordPress\LicenseBootstrap;
+use Validakey\WordPress\LicensePurchasePanel;
+
+LicenseBootstrap::register(array( /* … settings_page, redirect_url … */ ));
+
+$opts = array(
+    'settings_page' => 'myplugin',
+    'redirect_url' => admin_url('options-general.php?page=myplugin'),
+);
+
+add_action('admin_enqueue_scripts', function ($hook) use ($opts) {
+    LicensePurchasePanel::enqueue(
+        LicenseBootstrap::license()->client(),
+        $opts + array('hook_suffix' => $hook)
+    );
+});
+add_action('admin_init', function () use ($opts) {
+    $client = LicenseBootstrap::isConfigured() ? LicenseBootstrap::license()->client() : null;
+    LicensePurchasePanel::handleDetach($client, $opts);
+});
+add_action('wp_ajax_' . LicensePurchasePanel::DEFAULT_ATTACH_ACTION, function () use ($opts) {
+    $client = LicenseBootstrap::isConfigured() ? LicenseBootstrap::license()->client() : null;
+    LicensePurchasePanel::handleAttachAjax($client, $opts);
+});
+
+LicensePurchasePanel::render(LicenseBootstrap::license(), $opts);
+```
+
+Payment hooks delegate to `InstancePaymentPanel` with **embed-only** card UI
+(`show_hosted_link` is forced off). The card embed’s Save button is hidden;
+Purchase / Request tokenizes and attaches the card (when present) then continues.
+For a hosted payment-link fallback or a standalone Save-card button, wire
+`InstancePaymentPanel` directly. Request / Delete POSTs still come from
+`LicenseBootstrap::register()` (or manual `LicensePanel::handleRequest`).
+
 Pass `configured: false` and `$license = null` when constants are missing. Default capability is `manage_options`. Not a public shortcode.
+
+#### `Validakey\WordPress\ConfigPrefixPanel`
+
+Single admin status line with cleartext lookup prefixes for the configured
+account UUID and User App ID (`Envelope::prefix` / 8 characters). Confirms which
+Validakey account/app a build is wired to without printing full credentials.
+
+```php
+use Validakey\WordPress\ConfigPrefixPanel;
+
+ConfigPrefixPanel::render($client, array(
+    'wrapper_class' => 'myplugin-config-prefix',
+));
+// → Validakey: Account UUID 4b844fdd · App ID 4edc8320
+```
+
+Pass `$client = null` when unconfigured. Default capability is `manage_options`.
 
 ---
 
@@ -269,7 +349,9 @@ The decrement happens inside the `WHERE` clause server-side, so two machines spe
 
 ---
 
-#### `renewToken(string $token, ?int $duration = null, ?int $uses = null): TokenVerifyResponse`
+#### `renewToken(string $token, ?int $duration = null, ?int $uses = null, ?array $sale = null): TokenVerifyResponse`
+
+Extends a vKey with more time and/or uses. Optional `$sale` may carry the same price keys as mint (`basis_cents`, `tax_cents`, …) for a paid top-up. When mint policy is enabled, renew adds must stay inside the app limits.
 
 Adds time, uses, or both, without changing the vKey value — copies already deployed keep working.
 
@@ -585,6 +667,7 @@ Raw payload in `$response->data`.
 | POST | `/v1/r/` | Sealed (instance id) | `rotateInstance` |
 | POST | `/v1/t/` | Sealed (instance id) | `transferSubject` |
 | POST | `/v1/m/` | Sealed (instance id) | `createToken` |
+| POST | `/v1/policy/` | Sealed (instance id) | `getMintPolicy` |
 | POST | `/v1/v/` | Sealed (instance id) | `verifyToken`, `renewToken` |
 | DELETE | `/v1/v/` | Sealed (instance id) | `deleteToken` |
 | POST | `/v1/p/` | Sealed (instance id) | `instancePaymentStatus`, `attachInstanceCard`, `detachInstanceCard`, `requestInstancePaymentLink` |
@@ -601,7 +684,7 @@ Raw payload in `$response->data`.
 
 ## Response envelopes
 
-**Sealed endpoints** (`/v1/i/`, `/v1/r/`, `/v1/m/`, `/v1/v/`, `/v1/p/`) return the payload encrypted in a single field:
+**Sealed endpoints** (`/v1/i/`, `/v1/r/`, `/v1/m/`, `/v1/policy/`, `/v1/v/`, `/v1/p/`) return the payload encrypted in a single field:
 
 ```json
 { "out": { "q": "9b49fe4744cbe0f4a1c2…" } }

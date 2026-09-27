@@ -13,6 +13,7 @@ use Validakey\Exception\ValidakeyException;
 use Validakey\Instance\InMemoryInstanceStore;
 use Validakey\Request\AttachCardRequest;
 use Validakey\Request\CreateTokenRequest;
+use Validakey\Response\MintPolicyResponse;
 use Validakey\ValidakeyClient;
 use Validakey\ValidakeyConfig;
 
@@ -206,6 +207,69 @@ final class ValidakeyClientTest extends TestCase
         self::assertSame(
             $server->instanceForSubject(self::USER_APP_ID, $client->subject()),
             $server->tokenRequests[0]['instance_id']
+        );
+    }
+
+    public function testGetMintPolicyReturnsAppDefaultsAndLimits(): void
+    {
+        [$client, $transport, $server] = $this->sealedClient();
+        $server->mintPolicy = array(
+            'enabled' => true,
+            'defaults' => array(
+                'basis_cents' => 1999,
+                'duration' => 86400,
+            ),
+            'limits' => array(
+                'basis_cents_min' => 1999,
+                'basis_cents_max' => 1999,
+                'allow_no_expiry' => false,
+            ),
+        );
+
+        $policy = $client->getMintPolicy();
+
+        self::assertTrue($policy->isEnabled());
+        self::assertSame(1999, $policy->defaultBasisCents());
+        self::assertSame(86400, $policy->defaultDuration());
+        self::assertTrue($policy->isFixedPrice());
+        self::assertFalse($policy->allowNoExpiry());
+        self::assertCount(1, $server->policyQueries);
+        self::assertCount(1, $transport->requestsTo('POST ' . self::BASE_URL . '/policy/'));
+
+        $fromPolicy = CreateTokenRequest::fromMintPolicy($policy);
+        self::assertSame(
+            array(
+                'duration' => 86400,
+                'basis_cents' => 1999,
+            ),
+            $fromPolicy->toArray()
+        );
+    }
+
+    public function testFromMintPolicyCopiesRecurringDefaults(): void
+    {
+        $policy = MintPolicyResponse::fromArray(array(
+            'enabled' => true,
+            'defaults' => array(
+                'basis_cents' => 1000,
+                'duration' => 2592000,
+                'auto_renew' => true,
+                'recurrence' => 'monthly',
+            ),
+            'limits' => array(
+                'require_auto_renew' => true,
+                'allow_auto_renew' => true,
+            ),
+        ));
+
+        self::assertSame(
+            array(
+                'duration' => 2592000,
+                'recurrence' => 'monthly',
+                'auto_renew' => true,
+                'basis_cents' => 1000,
+            ),
+            CreateTokenRequest::fromMintPolicy($policy)->toArray()
         );
     }
 
@@ -838,6 +902,7 @@ final class ValidakeyClientTest extends TestCase
             'POST ' . self::BASE_URL . '/i/' => $server->handshakeResponder(),
             'POST ' . self::BASE_URL . '/r/' => $server->rotateResponder(),
             'POST ' . self::BASE_URL . '/m/' => $server->tokenResponder(),
+            'POST ' . self::BASE_URL . '/policy/' => $server->policyResponder(),
             'POST ' . self::BASE_URL . '/t/' => $server->transferResponder(),
             'POST ' . self::BASE_URL . '/v/' => $server->tokenActionResponder(),
             'DELETE ' . self::BASE_URL . '/v/' => $server->tokenActionResponder(),

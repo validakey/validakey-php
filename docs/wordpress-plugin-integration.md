@@ -106,7 +106,7 @@ if (! $license->allows()) {
 $check = $license->status(); // live verify + refresh snapshot
 ```
 
-`license()` loads your namespaced constants, stores the instance id under `{plugin-folder}_validakey_instances`, the granted vKey under `{plugin-folder}_validakey_tokens`, and verification snapshots under `{plugin-folder}_validakey_license_checks`. The handshake requires a non-empty subject. When `VALIDAKEY_SUBJECT` is unset, `license()` uses the site host from `home_url()` when available; otherwise the client assigns a random Subject ID and persists it with the instance id. The default mint is `CreateTokenRequest::free()` (type 1: no expiry, no price). If a required constant is missing, it throws `\InvalidArgumentException` naming what is still empty.
+`license()` loads your namespaced constants, stores the instance id under `{plugin-folder}_validakey_instances`, the granted vKey under `{plugin-folder}_validakey_tokens`, and verification snapshots under `{plugin-folder}_validakey_license_checks`. The handshake requires a non-empty subject. When `VALIDAKEY_SUBJECT` is unset, `license()` uses the site host from `home_url()` when available; otherwise the client assigns a random Subject ID and persists it with the instance id. The default mint is `CreateTokenRequest::free()` (type 1: no expiry, no price). When the User App has **mint policy** enabled, `License::request()` (with no explicit spec) queries `POST /v1/policy/` and mints from those defaults instead of `free()`. If a required constant is missing, it throws `\InvalidArgumentException` naming what is still empty.
 
 To work with the protocol client directly:
 
@@ -307,6 +307,7 @@ Common integration points in WordPress plugins:
 | Hook / context                    | Use case                                                                                  |
 | --------------------------------- | ----------------------------------------------------------------------------------------- |
 | Admin settings / License tab      | `LicenseBootstrap::renderPanel()`, or `LicensePanel` / `$license->status()` / `request()` |
+| Admin settings / purchase UI      | `LicensePurchasePanel::render()` + explicit payment enqueue / detach / AJAX hooks (embed-only; no hosted link) |
 | Admin settings / IE payment       | `InstancePaymentPanel::render()` + explicit enqueue / detach / link / AJAX hooks          |
 | Any request (gate)                | `LicenseBootstrap::allows()` or `$license->allows()` (local snapshot)                     |
 | WP-Cron (automatic via bootstrap) | `$license->revalidate()`                                                                  |

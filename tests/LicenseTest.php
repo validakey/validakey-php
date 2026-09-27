@@ -36,6 +36,30 @@ final class LicenseTest extends TestCase
         self::assertArrayNotHasKey('tax_USD', $payload);
     }
 
+    public function testRequestUsesMintPolicyDefaultsWhenEnabled(): void
+    {
+        [$client, , $server] = $this->sealedClient();
+        $server->mintPolicy = array(
+            'enabled' => true,
+            'defaults' => array(
+                'basis_cents' => 1999,
+                'duration' => 7200,
+            ),
+            'limits' => array(
+                'basis_cents_min' => 1999,
+                'basis_cents_max' => 1999,
+            ),
+        );
+
+        $license = new License($client, new InMemoryTokenStore(), CreateTokenRequest::free());
+        $license->request();
+
+        self::assertCount(1, $server->policyQueries);
+        self::assertSame(1999, $server->tokenRequests[0]['payload']['basis_cents']);
+        self::assertSame(7200, $server->tokenRequests[0]['payload']['duration']);
+        self::assertArrayNotHasKey('no_expiry', $server->tokenRequests[0]['payload']);
+    }
+
     public function testCostAndTaxUsdAreEmittedInPayload(): void
     {
         $payload = (new CreateTokenRequest(
@@ -249,6 +273,7 @@ final class LicenseTest extends TestCase
             'POST ' . self::BASE_URL . '/i/' => $server->handshakeResponder(),
             'POST ' . self::BASE_URL . '/r/' => $server->rotateResponder(),
             'POST ' . self::BASE_URL . '/m/' => $server->tokenResponder(),
+            'POST ' . self::BASE_URL . '/policy/' => $server->policyResponder(),
             'POST ' . self::BASE_URL . '/t/' => $server->transferResponder(),
             'POST ' . self::BASE_URL . '/v/' => $server->tokenActionResponder(),
             'DELETE ' . self::BASE_URL . '/v/' => $server->tokenActionResponder(),
