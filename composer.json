@@ -1,4 +1,4 @@
-{
+{ 
     "name": "validakey/validakey-php",
     "version": "1.9.0",
     "description": "PHP client for the Validakey v1 token and billing API",
