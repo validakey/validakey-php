@@ -225,6 +225,3 @@ composer install
 vendor/bin/phpunit
 ```
 
-## License
-
-MIT

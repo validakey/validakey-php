@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.9.1
+- 'Validakey\WordPress\LicenseBootstrap' - added plugin slug for multi-plugin sites
 - `Validakey\WordPress\ConfigPrefixPanel` — admin status line with cleartext
   account UUID and User App ID lookup prefixes (`Envelope::prefix`) without
   printing full credentials.
