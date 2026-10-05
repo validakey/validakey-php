@@ -11,6 +11,8 @@ use Validakey\Request\CreateTokenRequest;
 /**
  * One-call WordPress wiring for license setup, admin panel, cron, and gating.
  *
+ * Multiple host plugins may register concurrently (keyed by plugin_slug).
+ *
  * Typical plugin boot:
  *
  *     LicenseBootstrap::register([
@@ -44,6 +46,7 @@ use Validakey\Request\CreateTokenRequest;
  *     admin_notice_message?: string,
  *     token_spec?: CreateTokenRequest|null,
  *     action?: string,
+ *     delete_action?: string,
  *     nonce_field?: string,
  *     error_transient?: string,
  *     settings_group?: string,
@@ -54,6 +57,10 @@ use Validakey\Request\CreateTokenRequest;
  */
 final class LicenseBootstrap
 {
+    /** @var array<string, self> */
+    private static array $instances = array();
+
+    /** Last registered instance (back-compat for callers that omit plugin_slug). */
     private static ?self $instance = null;
 
     private ?License $license = null;
@@ -83,6 +90,7 @@ final class LicenseBootstrap
      *     admin_notice_message: string,
      *     token_spec: CreateTokenRequest|null,
      *     action: string,
+     *     delete_action: string,
      *     nonce_field: string,
      *     error_transient: string,
      *     settings_group: string,
@@ -94,76 +102,109 @@ final class LicenseBootstrap
     private array $options;
 
     /**
+     * Register (or replace) bootstrap wiring for one plugin slug.
+     *
+     * Multiple plugins may call register(); each keeps its own admin_init
+     * handlers. Passing the same plugin_slug again replaces that plugin only.
+     *
      * @param BootstrapOptions $options
      */
     public static function register(array $options = array()): self
     {
-        if (null !== self::$instance) {
-            self::unregister();
+        $boot = new self($options);
+        $slug = $boot->options['plugin_slug'];
+
+        if (isset(self::$instances[$slug])) {
+            self::unregister($slug);
         }
 
-        $boot = new self($options);
+        self::$instances[$slug] = $boot;
         self::$instance = $boot;
         $boot->boot();
 
         return $boot;
     }
 
-    public static function unregister(): void
+    /**
+     * Unregister one plugin slug, or every instance when $pluginSlug is null.
+     */
+    public static function unregister(?string $pluginSlug = null): void
     {
-        if (null === self::$instance) {
+        if (null === $pluginSlug) {
+            foreach (array_keys(self::$instances) as $slug) {
+                self::unregister($slug);
+            }
+
             return;
         }
 
-        $hook = LicenseScheduler::hookForSlug(self::$instance->options['plugin_slug']);
+        if (! isset(self::$instances[$pluginSlug])) {
+            return;
+        }
+
+        $boot = self::$instances[$pluginSlug];
+        $hook = LicenseScheduler::hookForSlug($boot->options['plugin_slug']);
         LicenseScheduler::unschedule($hook);
 
         if (\function_exists('remove_action')) {
-            \remove_action('admin_init', array(self::$instance, 'onAdminInit'));
-            \remove_action('admin_menu', array(self::$instance, 'onAdminMenu'));
-            \remove_action('admin_notices', array(self::$instance, 'onAdminNotices'));
+            \remove_action('admin_init', array($boot, 'onAdminInit'));
+            \remove_action('admin_menu', array($boot, 'onAdminMenu'));
+            \remove_action('admin_notices', array($boot, 'onAdminNotices'));
         }
 
-        self::$instance = null;
+        unset(self::$instances[$pluginSlug]);
+        if (self::$instance === $boot) {
+            self::$instance = array() === self::$instances
+                ? null
+                : self::$instances[array_key_last(self::$instances)];
+        }
     }
 
-    public static function instance(): ?self
+    public static function instance(?string $pluginSlug = null): ?self
     {
+        if (null !== $pluginSlug && '' !== trim($pluginSlug)) {
+            return self::$instances[trim($pluginSlug)] ?? null;
+        }
+
         return self::$instance;
     }
 
     /**
      * Whether license-path constants were present at register time.
      */
-    public static function isConfigured(): bool
+    public static function isConfigured(?string $pluginSlug = null): bool
     {
-        return null !== self::$instance && self::$instance->configured;
+        $boot = self::instance($pluginSlug);
+
+        return null !== $boot && $boot->configured;
     }
 
     /**
      * Shared license helper. Throws when bootstrap was never registered or
      * credentials are missing.
      */
-    public static function license(): License
+    public static function license(?string $pluginSlug = null): License
     {
-        if (null === self::$instance) {
+        $boot = self::instance($pluginSlug);
+        if (null === $boot) {
             throw new \RuntimeException('Validakey LicenseBootstrap::register() has not been called.');
         }
 
-        return self::$instance->resolveLicense();
+        return $boot->resolveLicense();
     }
 
     /**
      * Gate on the last verification (no network). False when unconfigured.
      */
-    public static function allows(): bool
+    public static function allows(?string $pluginSlug = null): bool
     {
-        if (null === self::$instance || ! self::$instance->configured) {
+        $boot = self::instance($pluginSlug);
+        if (null === $boot || ! $boot->configured) {
             return false;
         }
 
         try {
-            return self::$instance->resolveLicense()->allows();
+            return $boot->resolveLicense()->allows();
         } catch (\Throwable) {
             return false;
         }
@@ -174,13 +215,14 @@ final class LicenseBootstrap
      *
      * @param array<string, mixed> $panelOptions Merged over register() panel keys
      */
-    public static function renderPanel(array $panelOptions = array()): string
+    public static function renderPanel(array $panelOptions = array(), ?string $pluginSlug = null): string
     {
-        if (null === self::$instance) {
+        $boot = self::instance($pluginSlug);
+        if (null === $boot) {
             throw new \RuntimeException('Validakey LicenseBootstrap::register() has not been called.');
         }
 
-        return self::$instance->render($panelOptions);
+        return $boot->render($panelOptions);
     }
 
     /**
@@ -329,6 +371,7 @@ final class LicenseBootstrap
             'redirect_url' => $this->options['redirect_url'],
             'capability' => $this->options['capability'],
             'action' => $this->options['action'],
+            'delete_action' => $this->options['delete_action'],
             'nonce_field' => $this->options['nonce_field'],
             'error_transient' => $this->options['error_transient'],
             'settings_group' => $this->options['settings_group'],
@@ -461,6 +504,9 @@ final class LicenseBootstrap
                 ? $options['token_spec']
                 : null,
             'action' => $action,
+            'delete_action' => isset($options['delete_action']) && '' !== trim((string) $options['delete_action'])
+                ? trim((string) $options['delete_action'])
+                : LicensePanel::DEFAULT_DELETE_ACTION,
             'nonce_field' => isset($options['nonce_field']) && '' !== trim((string) $options['nonce_field'])
                 ? trim((string) $options['nonce_field'])
                 : $action . '_nonce',
