@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.10.0
+
+Dynamic Pass (ticketing QR) helpers on the client.
+
+- `Validakey\Door` — pack / unpack rotating `/g/{packed}` codes from a per-vKey
+  `door_seed` (HMAC-SHA256, 60s buckets, 48-bit MAC). Includes `packLive()`,
+  `redeemUrl()`, and `liveRedeemUrl()` for building the public validation URL.
+- `TokenResponse::doorSeed()` / `doorBucketSecs()` — exposed when mint returns
+  Dynamic Pass fields (app flag on); null when the flag is off.
+
 ## 1.9.1
 - 'Validakey\WordPress\LicenseBootstrap' - added plugin slug for multi-plugin sites
 - `Validakey\WordPress\ConfigPrefixPanel` — admin status line with cleartext

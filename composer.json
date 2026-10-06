@@ -1,6 +1,6 @@
 { 
     "name": "validakey/validakey-php",
-    "version": "1.9.1",
+    "version": "1.10.0",
     "description": "PHP client for the Validakey v1 token and billing API",
     "type": "library",
     "license": "MPL-2.0",

@@ -146,7 +146,7 @@ $token = $client->createToken(new CreateTokenRequest(
 
 The request is sealed with the client's instance id, performing a handshake first if none is stored. If the server has rotated the instance away, the stored one is discarded and the handshake is retried once.
 
-**Returns:** `TokenResponse` with `token`, `created`, `expiresAt`, and full `raw` payload.
+**Returns:** `TokenResponse` with `token`, `created`, `expiresAt`, full `raw` payload, and (when the User App has **Dynamic Pass** enabled) `doorSeed()` / `doorBucketSecs()` for packing public `/g/` redeem URLs. See [Door](#door-dynamic-pass).
 
 `CreateTokenRequest::free()` is the type 1 shortcut: `noExpiry: true`, duration 0, no price fields.
 
@@ -593,12 +593,39 @@ The documented vKey types are all combinations of these fields:
 
 ### TokenResponse
 
-| Property | Type | Description |
+| Property / method | Type | Description |
 |----------|------|-------------|
-| `token` | `string` | Plaintext access token |
+| `token` | `string` | Plaintext access token (vKey). Do not put in HTML or email. |
 | `created` | `int` | Unix timestamp |
 | `expiresAt` | `int` | Unix timestamp |
 | `raw` | `array` | Full server JSON (includes `out` and `db` keys) |
+| `doorSeed()` | `?string` | 16-char hex Dynamic Pass seed when the app flag is on; null otherwise. Store server-side only. |
+| `doorBucketSecs()` | `?int` | Bucket length in seconds (typically 60), or null |
+
+### Door (Dynamic Pass)
+
+Client-side pack helpers for the public redeem path `GET /g/{packed}/`. Not an instance-sealed `/v1/` route. A leaked vKey alone cannot mint these codes — you need the per-vKey `door_seed` from mint.
+
+```php
+use Validakey\Door;
+
+$url = Door::liveRedeemUrl(
+    $config->baseUrl,           // e.g. https://api.validakey.com/v1
+    substr($instanceId, 0, 8),
+    substr($tokenResponse->token, 0, 8),
+    $tokenResponse->doorSeed() ?? '',
+);
+// → https://api.validakey.com/g/{19-char-packed}/
+```
+
+| Method | Description |
+|--------|-------------|
+| `packLive($instancePre, $tokenPre, $doorSeedHex, ?$unix)` | 19-char packed code for the current (or given) 60s bucket |
+| `redeemUrl($apiBaseUrl, $packed)` | Strip trailing `/v1`, return `{origin}/g/{packed}/` |
+| `liveRedeemUrl(...)` | `packLive` + `redeemUrl` |
+| `packToken` / `unpackToken` / `mac48` / `bucket` | Low-level wire helpers |
+
+Refresh the packed URL as buckets roll (~every 60s). Keep `door_seed` on the server; only expose the redeem URL (e.g. as a QR payload).
 
 ### BillingStatusResponse
 
